@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"encoding/json"
@@ -11,17 +11,17 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
 
-func initializeSession(region string) *session.Session {
+func InitializeSession(region string) *session.Session {
 	return session.Must(session.NewSession(&aws.Config{
 		Region: aws.String(region),
 	}))
 }
 
-func initializeDynamoDB(sess *session.Session) *dynamodb.DynamoDB {
+func InitializeDynamoDB(sess *session.Session) *dynamodb.DynamoDB {
 	return dynamodb.New(sess)
 }
 
-func fetchForbiddenWords(url string) ([]string, error) {
+func FetchForbiddenWords(url string) ([]string, error) {
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch data: %v", err)
@@ -40,20 +40,11 @@ func fetchForbiddenWords(url string) ([]string, error) {
 	return words, nil
 }
 
-func isBadName(name string, forbiddenWords []string) bool {
-	for _, word := range forbiddenWords {
-		if strings.Contains(strings.ToLower(name), word) {
-			return true
+func IsBadName(name string, forbiddenWords []string) (bool, string) {
+	for _, badName := range forbiddenWords {
+		if strings.EqualFold(name, badName) {
+			return true, badName
 		}
 	}
-	return false
-}
-
-func isExplicitMessage(message string, forbiddenWords []string) bool {
-	for _, word := range forbiddenWords {
-		if strings.Contains(strings.ToLower(message), word) {
-			return true
-		}
-	}
-	return false
+	return false, ""
 }

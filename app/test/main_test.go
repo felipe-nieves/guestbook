@@ -1,7 +1,7 @@
-// test/main_test.go
-package main
+package main_test
 
 import (
+	"guestbook/src/handler"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -24,6 +24,18 @@ func (m *mockDynamoDBClient) Scan(input *dynamodb.ScanInput) (*dynamodb.ScanOutp
 	}, nil
 }
 
+func (m *mockDynamoDBClient) PutItem(input *dynamodb.PutItemInput) (*dynamodb.PutItemOutput, error) {
+	return &dynamodb.PutItemOutput{}, nil
+}
+
+func (m *mockDynamoDBClient) GetItem(input *dynamodb.GetItemInput) (*dynamodb.GetItemOutput, error) {
+	return &dynamodb.GetItemOutput{}, nil
+}
+
+func (m *mockDynamoDBClient) DeleteItem(input *dynamodb.DeleteItemInput) (*dynamodb.DeleteItemOutput, error) {
+	return &dynamodb.DeleteItemOutput{}, nil
+}
+
 func TestGuestbookHandler(t *testing.T) {
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
@@ -32,9 +44,9 @@ func TestGuestbookHandler(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	mockSvc := &mockDynamoDBClient{}
-	handler := NewHandler(mockSvc, "GuestbookEntries", []string{"badword1", "badword2"})
+	h := handler.NewHandler(mockSvc, "GuestbookEntries", []string{"badword1", "badword2"})
 
-	http.HandlerFunc(handler.GuestbookHandler).ServeHTTP(rr, req)
+	http.HandlerFunc(h.GuestbookHandler).ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
@@ -55,9 +67,9 @@ func TestSignHandler(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	mockSvc := &mockDynamoDBClient{}
-	handler := NewHandler(mockSvc, "GuestbookEntries", []string{"badword1", "badword2"})
+	h := handler.NewHandler(mockSvc, "GuestbookEntries", []string{"badword1", "badword2"})
 
-	http.HandlerFunc(handler.SignHandler).ServeHTTP(rr, req)
+	http.HandlerFunc(h.SignHandler).ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusFound {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusFound)

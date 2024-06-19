@@ -1,10 +1,14 @@
-// src/handler.go
-package main
+package handler
 
 import (
+	"fmt"
 	"html/template"
 	"net/http"
+	"regexp"
+	"strings"
 	"sync"
+
+	"guestbook/src/utils"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -32,34 +36,15 @@ type Handler struct {
 }
 
 func NewHandler(svc DynamoDBClient, tableName string, forbiddenWords []string) *Handler {
+	tpl, err := template.ParseFiles("src/html/index.html")
+	if err != nil {
+		panic(err)
+	}
 	return &Handler{
 		svc:            svc,
 		tableName:      tableName,
 		forbiddenWords: forbiddenWords,
-		tpl: template.Must(template.New("guestbook").Parse(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Guestbook</title>
-            </head>
-            <body>
-                <h1>Guestbook</h1>
-                <form action="/sign" method="POST">
-                    <label for="name">Name:</label>
-                    <input type="text" id="name" name="name" required>
-                    <label for="message">Message:</label>
-                    <textarea id="message" name="message" required></textarea>
-                    <button type="submit">Sign</button>
-                </form>
-                <h2>Entries:</h2>
-                <ul>
-                    {{range .}}
-                        <li><strong>{{.Name}}:</strong> {{.Message}}</li>
-                    {{end}}
-                </ul>
-            </body>
-            </html>
-        `)),
+		tpl:            tpl,
 	}
 }
 
@@ -95,7 +80,16 @@ func (h *Handler) SignHandler(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("name")
 	message := r.FormValue("message")
 
-	if isBadName(name, h.forbiddenWords) || isExplicitMessage(message, h.forbiddenWords) {
+	fmt.Printf("Received name: %s, message: %s\n", name, message)
+
+	if isBad, badWord := utils.IsBadName(name, h.forbiddenWords); isBad {
+		fmt.Printf("Name is flagged as bad: %s\n", badWord)
+		http.Error(w, "Invalid input", http.StatusBadRequest)
+		return
+	}
+
+	if isExplicit, explicitWord := h.isExplicitMessage(message); isExplicit {
+		fmt.Printf("Message is flagged as explicit: %s\n", explicitWord)
 		http.Error(w, "Invalid input", http.StatusBadRequest)
 		return
 	}
@@ -119,4 +113,14 @@ func (h *Handler) SignHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, "/", http.StatusFound)
+}
+
+func (h *Handler) isExplicitMessage(message string) (bool, string) {
+	for _, word := range h.forbiddenWords {
+		re := regexp.MustCompile(`\b` + regexp.QuoteMeta(word) + `\b`)
+		if re.MatchString(strings.ToLower(message)) {
+			return true, word
+		}
+	}
+	return false, ""
 }
